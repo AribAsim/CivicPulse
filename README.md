@@ -1,5 +1,5 @@
 # 🏛️ CivicPulse
-> **Bangalore Municipal Ward Infrastructure Ledger**
+> **Municipal Ward Infrastructure Ledger**
 
 CivicPulse is an advanced, full-stack collaborative civic platform designed to empower citizens and municipal ward inspectors in Bangalore by making public hazard logging transparent, gamified, and highly automated. 
 

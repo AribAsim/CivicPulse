@@ -459,28 +459,43 @@ export default function ReportPage() {
     }
     setGeocoding(true);
     setGpsError(false);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        setLat(latitude);
-        setLng(longitude);
-        triggerReverseGeocode(latitude, longitude);
-        toast.success("GPS Lock Established!");
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        setGpsError(true);
-        setShowPresetLocation(true);
-        toast.error("GPS blocked/unavailable (common in iframe preview sandboxes). Standard city center fallback coordinates locked successfully.");
-        setGeocoding(false);
-        // Fallback to a default ward coordinate so the form can still be submitted smoothly
-        setLat(12.9362);
-        setLng(77.6255);
-        setAddress("80 Feet Rd, Municipal Ward 151, City Center");
-      },
-      { enableHighAccuracy: true, timeout: 6000 }
-    );
+
+    const tryGetPosition = (highAccuracy: boolean) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          setLat(latitude);
+          setLng(longitude);
+          triggerReverseGeocode(latitude, longitude);
+          toast.success("GPS Lock Established!");
+        },
+        (error) => {
+          console.error(`Geolocation error (highAccuracy: ${highAccuracy}):`, error);
+          // error.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+          if (highAccuracy && (error.code === 3 || error.code === 2)) {
+            console.log("High accuracy location request failed/timed out. Retrying with standard accuracy...");
+            tryGetPosition(false);
+          } else {
+            setGpsError(true);
+            setShowPresetLocation(true);
+            if (error.code === 1) {
+              toast.error("GPS access blocked. Please enable site location permissions in your browser settings or select a landmark below.");
+            } else {
+              toast.error("GPS coordinates unavailable. Ward center fallback coordinates locked successfully.");
+            }
+            setGeocoding(false);
+            // Fallback to a default ward coordinate so the form can still be submitted smoothly
+            setLat(12.9362);
+            setLng(77.6255);
+            setAddress("80 Feet Rd, Municipal Ward 151, City Center");
+          }
+        },
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 5000 : 10000, maximumAge: 30000 }
+      );
+    };
+
+    tryGetPosition(true);
   };
 
   // File picker handler

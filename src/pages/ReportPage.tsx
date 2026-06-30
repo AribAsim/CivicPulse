@@ -67,7 +67,8 @@ export default function ReportPage() {
   const [lng, setLng] = useState<number | null>(null);
   const [address, setAddress] = useState('');
   const [geocoding, setGeocoding] = useState(false);
-  const [gpsError, setGpsError] = useState(false);
+  const [gpsError, setGpsError] = useState(false);          // true = GPS blocked, but fallback is active
+  const [gpsFallbackActive, setGpsFallbackActive] = useState(false); // true = fallback coords locked
   const [showPresetLocation, setShowPresetLocation] = useState(false);
 
   // Validation
@@ -338,20 +339,6 @@ export default function ReportPage() {
     };
   }, [cameraActive, stream, isCameraBlocked]);
 
-  // Trigger Geocoding if lat/lng is preset, or fallback to default coordinates
-  useEffect(() => {
-    if (passedLocation?.lat && passedLocation?.lng) {
-      setLat(passedLocation.lat);
-      setLng(passedLocation.lng);
-      triggerReverseGeocode(passedLocation.lat, passedLocation.lng);
-    } else if (!lat && !lng) {
-      // Default fallback initialized directly on load to prevent any blocker if GPS is unavailable!
-      setLat(12.9362);
-      setLng(77.6255);
-      setAddress("80 Feet Rd, Municipal Ward 151, City Center");
-    }
-  }, [passedLocation]);
-
   // Geocoding helper
   const triggerReverseGeocode = async (latitude: number, longitude: number) => {
     setGeocoding(true);
@@ -370,6 +357,54 @@ export default function ReportPage() {
       setGeocoding(false);
     }
   };
+
+  // Helper to fetch geolocation based on IP address via server proxy
+  const fetchIPLocation = async () => {
+    setGeocoding(true);
+    try {
+      const response = await fetchWithAuth('/api/ip-location');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.latitude && data.longitude) {
+          const latitude = Number(data.latitude);
+          const longitude = Number(data.longitude);
+          setLat(latitude);
+          setLng(longitude);
+          setGpsFallbackActive(true);
+          setGpsError(false);
+          
+          let ipAddress = "";
+          if (data.cityName) ipAddress += data.cityName;
+          if (data.regionName) ipAddress += (ipAddress ? ", " : "") + data.regionName;
+          if (data.countryName) ipAddress += (ipAddress ? ", " : "") + data.countryName;
+          if (!ipAddress) ipAddress = "IP-based location";
+          
+          setAddress(ipAddress);
+          await triggerReverseGeocode(latitude, longitude);
+          setGeocoding(false);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.error("Server IP location fetch failed:", err);
+    }
+    setGeocoding(false);
+    return false;
+  };
+
+  // Trigger Geocoding if lat/lng is preset, or fallback to default coordinates
+  useEffect(() => {
+    if (passedLocation?.lat && passedLocation?.lng) {
+      setLat(passedLocation.lat);
+      setLng(passedLocation.lng);
+      triggerReverseGeocode(passedLocation.lat, passedLocation.lng);
+    } else if (!lat && !lng) {
+      // Default fallback initialized directly on load (does not query IP address)
+      setLat(12.9362);
+      setLng(77.6255);
+      setAddress("80 Feet Rd, Municipal Ward 151, City Center");
+    }
+  }, [passedLocation]);
 
   // Initialize and sync OpenFreeMap
   useEffect(() => {
@@ -414,6 +449,8 @@ export default function ReportPage() {
           const { lat: clickLat, lng: clickLng } = e.lngLat;
           setLat(clickLat);
           setLng(clickLng);
+          setGpsFallbackActive(false);
+          setShowPresetLocation(false); // Hide presets list since marker was placed manually
           triggerReverseGeocode(clickLat, clickLng);
         });
       } catch (err) {
@@ -451,14 +488,39 @@ export default function ReportPage() {
 
   // Get current position
   const useMyLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser. Fallback coordinates assigned.");
-      setGpsError(true);
-      setShowPresetLocation(true);
-      return;
-    }
     setGeocoding(true);
     setGpsError(false);
+    setGpsFallbackActive(false);
+
+    const applyFallback = async (blocked: boolean) => {
+      // Try IP Geolocation first before hardcoded fallback
+      const ipSuccess = await fetchIPLocation();
+      if (ipSuccess) {
+        setShowPresetLocation(false); // Hide presets list as we successfully locked to live location!
+        toast.success("Approximate location locked successfully!");
+        return;
+      }
+
+      // Hardcoded default fallback if IP Geolocation also fails
+      setLat(12.9362);
+      setLng(77.6255);
+      setAddress("80 Feet Rd, Municipal Ward 151, City Center");
+      setGpsError(false);            // fallback IS active, so not a blocking error
+      setGpsFallbackActive(true);    // signal to UI that fallback is in use
+      setShowPresetLocation(true);
+      setGeocoding(false);
+      if (blocked) {
+        toast("GPS access blocked. Standard city center fallback coordinates locked successfully.", { icon: '📍' });
+      } else {
+        toast("GPS unavailable in this environment. Ward center fallback coordinates locked successfully.", { icon: '📍' });
+      }
+    };
+
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser.");
+      applyFallback(false);
+      return;
+    }
 
     const tryGetPosition = (highAccuracy: boolean) => {
       navigator.geolocation.getCurrentPosition(
@@ -467,31 +529,27 @@ export default function ReportPage() {
           const longitude = position.coords.longitude;
           setLat(latitude);
           setLng(longitude);
+          setGpsFallbackActive(false);
+          setGpsError(false);
+          setShowPresetLocation(false); // Hide presets list on precise GPS lock!
           triggerReverseGeocode(latitude, longitude);
+          setGeocoding(false);
           toast.success("GPS Lock Established!");
         },
         (error) => {
           console.error(`Geolocation error (highAccuracy: ${highAccuracy}):`, error);
           // error.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
-          if (highAccuracy && (error.code === 3 || error.code === 2)) {
-            console.log("High accuracy location request failed/timed out. Retrying with standard accuracy...");
+          // Only retry on pure timeout (code 3) with high-accuracy mode.
+          // code 2 (POSITION_UNAVAILABLE) is permanent in iframe sandboxes — never retry it.
+          if (highAccuracy && error.code === 3) {
+            console.log("High-accuracy timed out. Retrying with standard accuracy...");
             tryGetPosition(false);
           } else {
-            setGpsError(true);
-            setShowPresetLocation(true);
-            if (error.code === 1) {
-              toast.error("GPS access blocked. Please enable site location permissions in your browser settings or select a landmark below.");
-            } else {
-              toast.error("GPS coordinates unavailable. Ward center fallback coordinates locked successfully.");
-            }
-            setGeocoding(false);
-            // Fallback to a default ward coordinate so the form can still be submitted smoothly
-            setLat(12.9362);
-            setLng(77.6255);
-            setAddress("80 Feet Rd, Municipal Ward 151, City Center");
+            // All other cases: permission denied (1), unavailable (2), or standard-accuracy timeout (3)
+            applyFallback(error.code === 1);
           }
         },
-        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 5000 : 10000, maximumAge: 30000 }
+        { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 5000 : 8000, maximumAge: 30000 }
       );
     };
 
@@ -1066,13 +1124,17 @@ export default function ReportPage() {
           <div className="form-group" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
             <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Hazard Location</span>
-              {gpsError ? (
-                <span style={{ fontSize: '11px', color: 'var(--warning)', fontWeight: 600 }}>
-                  ⚠️ GPS Blocked (Using Active Fallback)
+              {gpsFallbackActive ? (
+                <span style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 600 }}>
+                  📍 Fallback Coordinates Active
                 </span>
-              ) : (
+              ) : lat && lng ? (
                 <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 600 }}>
                   ✓ GPS Location Active
+                </span>
+              ) : (
+                <span style={{ fontSize: '11px', color: 'var(--text-2)', fontWeight: 600 }}>
+                  — Location Not Yet Detected
                 </span>
               )}
             </label>
@@ -1090,13 +1152,13 @@ export default function ReportPage() {
             </div>
 
             {/* Checkpoint selector for fallback / manual convenience */}
-            {(showPresetLocation || gpsError) && (
+            {(showPresetLocation || gpsError || gpsFallbackActive) && (
               <div style={{ marginBottom: '12px', padding: '10px', background: 'var(--surface-2)', border: '1px dashed var(--border)', borderRadius: '6px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-1)', display: 'block', marginBottom: '4px' }}>
                   Select Municipal District Checkpoint:
                 </span>
                 <p style={{ margin: '0 0 8px 0', fontSize: '10.5px', color: 'var(--text-2)', lineHeight: '1.4' }}>
-                  GPS request was blocked or is unavailable (standard inside secure sandbox previews). We have automatically aligned your report to the ward center fallback coordinates. You can select another active municipal landmark below:
+                  We have automatically aligned your report to the ward center fallback coordinates. You can select another active municipal landmark below if needed:
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {PRESET_CHECKPOINTS.map((cp, idx) => (
@@ -1110,6 +1172,8 @@ export default function ReportPage() {
                         setLng(cp.lng);
                         setAddress(cp.address);
                         setGpsError(false);
+                        setGpsFallbackActive(true);
+                        setShowPresetLocation(false); // Hide presets list after selection
                         toast.success(`Location aligned to ${cp.name}`);
                       }}
                     >

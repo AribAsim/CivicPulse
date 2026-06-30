@@ -200,6 +200,73 @@ app.get("/api/geocode", rateLimiter(60000, 60), async (req, res) => {
   }
 });
 
+// IP-based Geolocation proxy (bypasses browser sandboxing/CORS blocks)
+app.get("/api/ip-location", rateLimiter(60000, 60), async (req, res) => {
+  let clientIp = req.headers["x-forwarded-for"] || req.ip || req.socket.remoteAddress || "";
+  
+  if (Array.isArray(clientIp)) {
+    clientIp = clientIp[0];
+  } else if (typeof clientIp === "string") {
+    clientIp = clientIp.split(",")[0].trim();
+  }
+  
+  if (clientIp.startsWith("::ffff:")) {
+    clientIp = clientIp.substring(7);
+  }
+
+  const isPrivate = (ip: string): boolean => {
+    if (!ip || ip === "::1" || ip === "127.0.0.1" || ip === "localhost") return true;
+    if (ip.startsWith("10.")) return true;
+    if (ip.startsWith("192.168.")) return true;
+    if (ip.startsWith("172.")) {
+      const parts = ip.split(".");
+      if (parts.length >= 2) {
+        const val = parseInt(parts[1], 10);
+        return val >= 16 && val <= 31;
+      }
+    }
+    return false;
+  };
+
+  if (isPrivate(clientIp)) {
+    clientIp = ""; 
+  }
+
+  try {
+    const response = await fetch(`https://freeipapi.com/api/json/${clientIp}`);
+    if (response.ok) {
+      const data = await response.json();
+      return res.json({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        cityName: data.cityName,
+        regionName: data.regionName,
+        countryName: data.countryName
+      });
+    }
+  } catch (err) {
+    console.error("FreeIPAPI proxy failed, trying ipapi.co...", err);
+  }
+
+  try {
+    const response = await fetch(`https://ipapi.co/${clientIp}/json/`);
+    if (response.ok) {
+      const data = await response.json();
+      return res.json({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        cityName: data.city,
+        regionName: data.region,
+        countryName: data.country_name
+      });
+    }
+  } catch (err) {
+    console.error("ipapi.co proxy failed:", err);
+  }
+
+  return res.status(500).json({ error: "Could not determine IP location" });
+});
+
 // Vision Triage Endpoint (analyses uploaded hazard images)
 app.post("/api/agents/vision", requireAuth, aiLimiter, async (req, res) => {
   const { image } = req.body;
@@ -951,7 +1018,11 @@ async function startServer() {
     console.log(`CivicPulse server running on http://localhost:${PORT}`);
     
     // Start background autonomous agent orchestrator
-    startOrchestratorScheduler();
+    if (process.env.DISABLE_ORCHESTRATOR !== "true") {
+      startOrchestratorScheduler();
+    } else {
+      console.log("Background autonomous agent orchestrator disabled by environment variable.");
+    }
   });
 }
 

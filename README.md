@@ -1,6 +1,8 @@
 # 🏛️ CivicPulse
 > Collaborative civic hazard logging ledger with real-time tracking, AI agent processing, and resolution verification.
 
+🔗 **Live Application**: [civicpulse-656142327646.asia-south1.run.app](https://civicpulse-656142327646.asia-south1.run.app)
+
 CivicPulse is a full-stack civic platform that empowers Bangalore citizens and ward inspectors to log public safety hazards (potholes, garbage piles, streetlight failures, broken pipes) and verify resolutions in real time. Backed by Express, React, and Google Gemini AI models, the application automates priority scoring, SLA predictions, voice cleaning, and verification workflows.
 
 ---

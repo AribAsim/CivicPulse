@@ -1,117 +1,122 @@
 # 🏛️ CivicPulse
-> **Municipal Ward Infrastructure Ledger**
+> Collaborative civic hazard logging ledger with real-time tracking, AI agent processing, and resolution verification.
 
-CivicPulse is an advanced, full-stack collaborative civic platform designed to empower citizens and municipal ward inspectors in Bangalore by making public hazard logging transparent, gamified, and highly automated. 
-
-By pairing a high-fidelity, responsive React frontend with an Express.js backend and a suite of server-side Gemini AI agents, the platform captures, cleans, classifies, and verifies public safety reports (such as potholes, malfunctioning streetlights, overflowing garbage, and broken utility pipes) in real time. It resolves standard friction in civic tracking by transforming messy raw user descriptions, photos, and voice transcripts into structured, priority-scored municipal work tickets with predicted SLA windows and automated verification workflows.
+CivicPulse is a full-stack civic platform that empowers Bangalore citizens and ward inspectors to log public safety hazards (potholes, garbage piles, streetlight failures, broken pipes) and verify resolutions in real time. Backed by Express, React, and Google Gemini AI models, the application automates priority scoring, SLA predictions, voice cleaning, and verification workflows.
 
 ---
 
-## 📸 Interface Gallery
+## 📸 Visual Showcase
 
-Here is a visual overview of the CivicPulse user interface:
+Explore the primary views of the CivicPulse interface:
 
-### 🏠 Landing Portal
-Explore the citizen landing dashboard showing recent issues, user leaderboard, and dynamic statistics.
-![CivicPulse Homepage](./assets/screenshots/home.png)
-
-### 🗺️ Interactive Neighborhood Map
-View active ward complaints, filter reports, and manually pin civic issues on a high-fidelity interactive map layer.
-![Interactive Map Page](./assets/screenshots/map.png)
-
-### ✍️ Report Hazard Form
-File reports using AI-powered camera scanner simulations, speech-to-text voice cleansers, and interactive landmark aligners.
-![Report Page](./assets/screenshots/report.png)
-
-### 📊 Municipal Resolution Dashboard
-Inspectors and citizens can track active resolutions, see open tickets, verify SLA statuses, and view automated BBMP escalation letters.
-![Dashboard Page](./assets/screenshots/dashboard.png)
+| View | Screenshot | Description |
+|------|------------|-------------|
+| **Landing Portal** | ![CivicPulse Homepage](./assets/screenshots/home.png) | Landing portal containing dynamic statistics, recent logs, and the warden leaderboard. |
+| **Interactive Map** | ![Interactive Map Page](./assets/screenshots/map.png) | Geographic ward ledger showing reported concerns mapped dynamically over Bangalore districts. |
+| **Report Hazard** | ![Report Page](./assets/screenshots/report.png) | Interactive filing form with live camera simulation, speech cleaning, and checkpoint options. |
+| **Inspector Dashboard** | ![Dashboard Page](./assets/screenshots/dashboard.png) | Ward queue page displaying active resolutions, before/after visual verification, and BBMP escalations. |
 
 ---
 
-## 🚀 Key Features
+## 🚀 Features
 
-*   **Geographic Ward Integration**: An interactive neighborhood-mapped dashboard scaled to Bangalore’s key zones (Koramangala, Indiranagar, Whitefield, HSR Layout), supporting manual map plotting, automated ward identification, and fallback coordinate alignments.
-*   **AI-Powered Vision Classification**: Instantly analyzes submitted photos to identify public infrastructure hazards, filter out invalid/unrelated uploads (e.g., food, selfies), score priority levels (1–5), and generate SLA windows automatically.
-*   **Cleansed Speech-to-Text Reporting**: Integrates a conversational voice-cleanup system that processes rough, transcribed audio inputs and parses them into concise titles and grammatically structured descriptions.
-*   **Dual-Image Resolution Verification**: Empowers inspectors and wardens to submit "after" photos, which are compared side-by-side with original "before" photos using Gemini Vision models to programmatically confirm resolution before tickets are closed.
-*   **Gamification & Civic Reputation**: Boosts citizen participation via an interactive Warden Leveling System, awarding contribution points (+50 for valid filings, +120 for verifying resolutions) and unlocking progressive civic advocacy badges.
-*   **Automated BBMP Escalation**: Generates formal, structured escalation letters addressed to the Bruhat Bengaluru Mahanagara Palike (BBMP) Municipal Commissioner if critical municipal issues remain unaddressed beyond their calculated SLA deadlines.
-*   **Real-Time Data Ledger**: Backed by a live Firestore persistence database that keeps all active complaints, user leaderboard ranks, and municipal resolution queues synchronized in real time across all active sessions.
+*   **Geographic Ward Integration**: Mapped neighborhood ledger focused on key Bangalore wards (Koramangala, Indiranagar, Whitefield, HSR Layout), supporting manual map plotting, auto-address resolution, and custom landmark aligners.
+*   **AI-Powered Vision Triage**: Automatically scans submitted photos, filters out invalid uploads, determines category tags, grades severity (1-5), and computes target completion SLAs.
+*   **Speech-to-Text Voice Cleanup**: A voice processing pipeline that takes raw speech transcript inputs and cleans them into concise, grammatically structured titles and descriptions.
+*   **Dual-Image Resolution Verification**: Allows inspectors to submit "after" photos, which are compared side-by-side with original "before" photos using Gemini Vision models to programmatically verify and close tickets.
+*   **Automated BBMP Escalation**: Automatically drafts formal letters addressed to the Bruhat Bengaluru Mahanagara Palike (BBMP) Municipal Commissioner if issues remain unresolved past their predicted SLA windows.
+*   **Gamified Warden System**: Citizens earn leveling points (+50 for reporting, +120 for verifying resolution) to unlock civic badges and climb the municipal leaderboard.
+*   **Real-Time Data Sync**: Firebase Firestore integration synchronizes complaints, comments, leaderboards, and map pins instantly across all open sessions.
 
 ---
 
 ## 🛠️ Technologies Used
 
-*   **Frontend**: React 18, Vite, Tailwind CSS, Framer Motion, Lucide Icons, MapLibre GL
-*   **Backend**: Node.js, Express.js (configured for standard container port binding `3000`), `tsx`
-*   **Database**: Firebase Firestore (real-time, persistent NoSQL)
-*   **Authentication**: Firebase Auth (Anonymous & Email credentials)
-*   **AI Engine**: `@google/genai` SDK (leveraging `gemini-3.5-flash` model templates)
-*   **Bundling & Build**: `esbuild` (bundling TypeScript into standalone, CJS-formatted output under `dist/`)
+| Layer | Technologies |
+|-------|--------------|
+| **Frontend** | React 18, Vite, Tailwind CSS, Framer Motion, Lucide Icons, MapLibre GL |
+| **Backend** | Node.js, Express.js, TypeScript Executable (`tsx`) |
+| **Database** | Firebase Firestore (Persistent NoSQL Data Store), Firebase Storage |
+| **Authentication** | Firebase Auth (Anonymous Access, Email/Password Credentials) |
+| **AI Models** | `@google/genai` (utilizing `gemini-3.5-flash` model templates) |
+| **Build & Bundling** | `esbuild` (bundling server TS scripts to CJS format) |
+
+---
+
+## 🏁 Quick Start
+
+### 1. Installation
+Install all backend and frontend dependencies:
+```bash
+npm install
+```
+
+### 2. Configuration
+Create a `.env` file in the root directory:
+```bash
+cp .env.example .env
+```
+Fill out the variables as described in the [Configuration](#configuration) section below.
+
+### 3. Run Development Server
+Launches the Express server and mounts the Vite frontend middleware on Port `3000`:
+```bash
+npm run dev
+```
+
+### 4. Build and Launch Production Server
+```bash
+npm run build
+npm start
+```
+
+---
+
+## ⚙️ Configuration
+
+The following environment variables configure the application:
+
+| Variable | Description | Required | Default / Note |
+|----------|-------------|----------|----------------|
+| `GEMINI_API_KEY` | Server Gemini AI Studio Key | Yes | Required for AI vision, voice cleanup, and letter draft. |
+| `VITE_FIREBASE_API_KEY` | Firebase Web Client API Key | Yes | Required for database & auth connection. |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Web Auth Domain | Yes | Configures Firebase authorization domain. |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase Project ID | Yes | Identifies target Firebase DB/Storage. |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage Bucket | Yes | Bucket name for storing reports and images. |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID`| Firebase Messaging Sender ID | Yes | Used for push notifications. |
+| `VITE_FIREBASE_APP_ID` | Firebase Web App ID | Yes | Client application ID. |
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps Platform API Key | No | Optional key to query Maps API for address names. |
+| `DISABLE_ORCHESTRATOR` | Disables Local Background Agent orchestrator | No | Set to `true` locally to run without ADC credentials. |
 
 ---
 
 ## 🔒 Security Specifications & Data Invariance
 
-CivicPulse incorporates a zero-trust model:
-1.  **User Records**: Hardened Firebase Security Rules guarantee a citizen can only modify their own `/users/{userId}` record, preventing identity or leaderboard point spoofing.
-2.  **Issue Security**: `/issues/{issueId}` writes are validated; creators must match `request.auth.uid` to prevent identity spoofing, and title characters are limited to avoid wallet exhaustion attacks.
-3.  **Protected API Keys**: All external API key transactions (Gemini API, Google Maps Static Key, database credentials) are executed exclusively on the Express backend, keeping client bundles pristine and secure.
-
----
-
-## 🏁 Getting Started & Setup
-
-### 1. Configure Secrets
-Create a `.env` file in the root directory and define the following variables:
-
-```env
-# Server Gemini API Key
-GEMINI_API_KEY="your-gemini-api-key"
-
-# Client Firebase Configuration
-VITE_FIREBASE_API_KEY="your-firebase-api-key"
-VITE_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
-VITE_FIREBASE_PROJECT_ID="your-project-id"
-VITE_FIREBASE_STORAGE_BUCKET="your-project.appspot.com"
-VITE_FIREBASE_MESSAGING_SENDER_ID="your-sender-id"
-VITE_FIREBASE_APP_ID="your-app-id"
-
-# Google Maps Static Maps API Key (Optional)
-VITE_GOOGLE_MAPS_API_KEY="your-maps-api-key"
-```
-
-### 2. Install Dependencies
-```bash
-npm install
-```
-
-### 3. Start Development Server
-This boots up the Vite middleware integrated within the Express backend on Port `3000`:
-```bash
-npm run dev
-```
-
-### 4. Build and Compile for Production
-Generates optimized static frontend assets and bundles the Node backend using `esbuild` to CJS format inside `dist/`:
-```bash
-npm run build
-```
-
-### 5. Start Production Server
-```bash
-npm run start
-```
+CivicPulse is built with a zero-trust model to safeguard data integrity:
+*   **Leaderboard Point Integrity**: Hardened Firebase Security Rules restrict write operations to `/users/{userId}` to the authenticated owner only, preventing point spoofing.
+*   **Filing Validation**: Write rules for `/issues/{issueId}` require `request.auth.uid` to match the submitter's ID, and cap text inputs to prevent database overhead attacks.
+*   **Protected Keys**: All AI calls (Gemini SDK) and geocoding operations run exclusively on the Express backend server, shielding sensitive credentials from browser bundles.
 
 ---
 
 ## 📋 Directory Structure
 
-*   `server.ts` — Main Express entry point & AI Agent proxy handlers.
-*   `firestore.rules` — Hardened security protocols.
-*   `/src/pages` — Core interface views (Map, Report, Dashboard, Insights).
-*   `/src/components` — Shared UI elements (Navbar, Error boundaries).
-*   `/src/agents` — Orchestrator schedulers & analytical modules.
-*   `/src/contexts` — Firebase Auth & User context management.
-*   `/src/utils` — Scoring systems & helper functions.
+```text
+├── server.ts                  # Express server & API routes
+├── firestore.rules            # Security rules for Firestore database
+├── firebase-applet-config.json # Applet metadata configuration file
+├── src/
+│   ├── main.tsx               # App mount script
+│   ├── App.tsx                # Main router & layout configuration
+│   ├── pages/                 # Core page views (Map, Report, Dashboard, Insights)
+│   ├── components/            # Shared UI components (Navbar, Error boundary, skeletons)
+│   ├── contexts/              # Authentication & user state context providers
+│   ├── agents/                # Server-side Gemini AI Agent templates & orchestrator
+│   └── utils/                 # Points/reward scoring engine and formatting helpers
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.

@@ -348,7 +348,7 @@ export default function MapPage() {
               text-transform: uppercase;
               border: 1px solid ${isResolved ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'};
             ">
-              ${issue.status.toUpperCase()}
+              ${escapeHTML(issue.status).toUpperCase()}
             </span>
           </div>
         </div>

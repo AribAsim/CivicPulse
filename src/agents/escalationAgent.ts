@@ -1,6 +1,5 @@
-import { collection, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { createNotification } from '../utils/pointsEngine';
+import { db, FieldValue } from '../config/firebaseAdmin';
+import { createNotification } from '../utils/pointsEngineAdmin';
 import { GoogleGenAI } from '@google/genai';
 import { runWithRetry } from '../utils/geminiRetry';
 
@@ -15,15 +14,15 @@ export async function detectEscalations() {
   try {
     console.error("[EscalationAgent] Scanning for open issues to escalate...");
     
-    const issuesRef = collection(db, 'issues');
-    const querySnapshot = await getDocs(issuesRef);
+    const issuesRef = db.collection('issues');
+    const querySnapshot = await issuesRef.get();
     
     const now = Date.now();
     const seventyTwoHoursMs = 72 * 60 * 60 * 1000;
     let escalatedCount = 0;
 
     for (const docSnap of querySnapshot.docs) {
-      const issue = docSnap.data();
+      const issue = docSnap.data() || {};
       const createdAtMs = issue.createdAt?.seconds 
         ? issue.createdAt.seconds * 1000 
         : (issue.createdAt?.toDate ? issue.createdAt.toDate().getTime() : now);
@@ -38,11 +37,11 @@ export async function detectEscalations() {
         console.error(`[EscalationAgent] Escalating issue: ${issue.title} (ID: ${docSnap.id})`);
         
         // Update issue in Firestore
-        const issueDocRef = doc(db, 'issues', docSnap.id);
-        await updateDoc(issueDocRef, {
+        const issueDocRef = db.collection('issues').doc(docSnap.id);
+        await issueDocRef.update({
           escalated: true,
-          escalatedAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          escalatedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
         });
 
         // Notify reporter
@@ -97,3 +96,4 @@ export async function generateComplaintLetter(issue: any): Promise<string> {
     defaultLetter
   );
 }
+

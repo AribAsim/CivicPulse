@@ -1,6 +1,5 @@
-import { collection, getDocs, setDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { GoogleGenAI, Type } from '@google/genai';
+import { db, FieldValue } from '../config/firebaseAdmin';
+import { GoogleGenAI } from '@google/genai';
 import { runWithRetry } from '../utils/geminiRetry';
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
@@ -14,14 +13,14 @@ export async function runPredictiveAgent() {
   try {
     console.error("[PredictiveAgent] Running predictive clustering scan...");
     
-    const issuesRef = collection(db, 'issues');
-    const querySnapshot = await getDocs(issuesRef);
+    const issuesRef = db.collection('issues');
+    const querySnapshot = await issuesRef.get();
     
     // Group issues by grid key: "lat_lng" rounded to 2 decimals
     const gridGroups: { [key: string]: any[] } = {};
 
     querySnapshot.docs.forEach((docSnap) => {
-      const issue = docSnap.data();
+      const issue = docSnap.data() || {};
       // Only group open (non-resolved) issues
       if (issue.status !== 'resolved' && issue.lat && issue.lng) {
         const gridLat = parseFloat(issue.lat).toFixed(2);
@@ -95,8 +94,8 @@ export async function runPredictiveAgent() {
         const lng = parseFloat(lngStr);
 
         // Store prediction in Firestore
-        const predictionRef = doc(db, 'zonePredictions', gridKey);
-        await setDoc(predictionRef, {
+        const predictionRef = db.collection('zonePredictions').doc(gridKey);
+        await predictionRef.set({
           gridKey,
           lat,
           lng,
@@ -104,7 +103,7 @@ export async function runPredictiveAgent() {
           riskLevel,
           reason,
           issues: issues.map(i => i.id),
-          updatedAt: serverTimestamp()
+          updatedAt: FieldValue.serverTimestamp()
         });
         
         console.error(`[PredictiveAgent] Saved prediction for ${gridKey}: ${riskLevel.toUpperCase()} - ${reason}`);
@@ -116,3 +115,4 @@ export async function runPredictiveAgent() {
     console.error("[PredictiveAgent] Predictive Agent execution failed:", error);
   }
 }
+

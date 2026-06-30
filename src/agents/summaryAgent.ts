@@ -1,5 +1,4 @@
-import { collection, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, FieldValue } from '../config/firebaseAdmin';
 import { GoogleGenAI } from '@google/genai';
 import { runWithRetry } from '../utils/geminiRetry';
 
@@ -13,8 +12,8 @@ export async function runSummaryAgent() {
   try {
     console.error("[SummaryAgent] Evaluating community stats and area briefing...");
     
-    const issuesRef = collection(db, 'issues');
-    const querySnapshot = await getDocs(issuesRef);
+    const issuesRef = db.collection('issues');
+    const querySnapshot = await issuesRef.get();
     
     const totalIssues = querySnapshot.docs.length;
     let openCount = 0;
@@ -23,7 +22,7 @@ export async function runSummaryAgent() {
     let totalSeverity = 0;
 
     querySnapshot.docs.forEach((docSnap) => {
-      const issue = docSnap.data();
+      const issue = docSnap.data() || {};
       if (issue.status === 'resolved') {
         resolvedCount++;
       } else {
@@ -49,15 +48,15 @@ export async function runSummaryAgent() {
     console.error(`[SummaryAgent] Computed Health Score: ${healthScore}/100. Open: ${openCount}, Resolved: ${resolvedCount}`);
 
     // Save Health Score document
-    const healthRef = doc(db, 'analytics', 'healthScore');
-    await setDoc(healthRef, {
+    const healthRef = db.collection('analytics').doc('healthScore');
+    await healthRef.set({
       score: healthScore,
       totalIssues,
       openCount,
       resolvedCount,
       verifiedCount,
       avgSeverity: parseFloat(avgSeverity.toFixed(1)),
-      updatedAt: serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     });
 
     // Generate Context Summary with Gemini
@@ -97,10 +96,10 @@ export async function runSummaryAgent() {
     }
 
     // Save Summary document
-    const summaryRef = doc(db, 'analytics', 'summary');
-    await setDoc(summaryRef, {
+    const summaryRef = db.collection('analytics').doc('summary');
+    await summaryRef.set({
       summaryText,
-      updatedAt: serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     });
 
     console.error(`[SummaryAgent] Saved summary briefing: "${summaryText.substring(0, 80)}..."`);

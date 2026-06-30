@@ -1,5 +1,4 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../config/firebaseAdmin';
 import { runVerificationAgent } from './verificationAgent';
 import { detectEscalations } from './escalationAgent';
 import { runPredictiveAgent } from './predictiveAgent';
@@ -50,8 +49,8 @@ export async function runOrchestratorPipeline() {
 
     // STEP 2: Find unverified issues with 3+ upvotes and verify them
     console.error("[Orchestrator] Step 2 of 5: Finding 3+ upvote unverified issues...");
-    const issuesRef = collection(db, 'issues');
-    const issuesSnap = await getDocs(issuesRef);
+    const issuesRef = db.collection('issues');
+    const issuesSnap = await issuesRef.get();
     
     for (const docSnap of issuesSnap.docs) {
       const issue = docSnap.data();

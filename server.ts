@@ -3,8 +3,6 @@ import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
-import { signInAnonymously } from "firebase/auth";
-import { auth } from "./src/config/firebase";
 import { runWithRetry } from "./src/utils/geminiRetry";
 import { startOrchestratorScheduler } from "./src/agents/AgentOrchestrator";
 import { runVerificationAgent } from "./src/agents/verificationAgent";
@@ -12,6 +10,7 @@ import { runVerificationAgent } from "./src/agents/verificationAgent";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1); // Trust first-hop reverse proxy securely
 const PORT = 3000;
 
 // Body parser with size limits
@@ -41,16 +40,44 @@ app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; connect-src 'self' https: wss:;"
-  );
+  
+  // Apply a tight Content-Security-Policy in production, while permitting development HMR / Vite requirements
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self' https: data: blob:; script-src 'self' https:; style-src 'self' https: 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src 'self' https: wss:;"
+    );
+  } else {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:; img-src 'self' https: data: blob:; connect-src 'self' https: wss:;"
+    );
+  }
   next();
 });
 
 // Explicit CORS Policy
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173"
+  ];
+  if (process.env.APP_URL) {
+    allowedOrigins.push(process.env.APP_URL);
+  }
+  
+  const origin = req.headers.origin;
+  if (origin) {
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.endsWith(".run.app") || 
+                      origin.startsWith("https://ais-");
+    if (isAllowed) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+  }
+
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
@@ -64,7 +91,7 @@ const ipRequestCounts = new Map<string, { count: number; resetTime: number }>();
 
 function rateLimiter(windowMs: number, maxRequests: number) {
   return (req: any, res: any, next: any) => {
-    const ip = req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
     const now = Date.now();
     
     const record = ipRequestCounts.get(ip);
@@ -92,9 +119,10 @@ const aiLimiter = rateLimiter(60000, 40);
 
 // Authentication Middleware via Google Identity Toolkit ID Token Verification
 async function requireAuth(req: any, res: any, next: any) {
-  const firebaseKey = process.env.VITE_FIREBASE_API_KEY || process.env.GEMINI_API_KEY;
-  if (!firebaseKey || firebaseKey === "placeholder-key") {
-    return next(); // Graceful bypass if API keys aren't configured yet
+  const firebaseKey = process.env.VITE_FIREBASE_API_KEY;
+  if (!firebaseKey) {
+    console.error("FATAL: VITE_FIREBASE_API_KEY not set. Cannot verify auth tokens.");
+    return res.status(503).json({ error: "Service misconfigured: Auth is unavailable." });
   }
 
   const authHeader = req.headers.authorization;
@@ -905,16 +933,6 @@ app.post("/api/agents/personal-impact", requireAuth, aiLimiter, async (req, res)
 // ═══════════════════════════════════════════════════════════════
 
 async function startServer() {
-  // Backend Server Auth: Sign in anonymously to bypass Firestore read/write rules
-  try {
-    if (auth) {
-      await signInAnonymously(auth);
-      console.error("[Auth] Server authenticated anonymously to Firestore successfully.");
-    }
-  } catch (err) {
-    console.error("[Auth] Server background auth warning:", err);
-  }
-
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

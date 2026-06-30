@@ -3,15 +3,14 @@ import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import appletConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
-  apiKey: appletConfig.apiKey || import.meta.env.VITE_FIREBASE_API_KEY || "placeholder-key",
-  authDomain: appletConfig.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "placeholder-auth",
-  projectId: appletConfig.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID || "placeholder-project",
-  storageBucket: appletConfig.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "placeholder-bucket",
-  appId: appletConfig.appId || import.meta.env.VITE_FIREBASE_APP_ID || "placeholder-app-id",
-  firestoreDatabaseId: appletConfig.firestoreDatabaseId || ""
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "placeholder-key",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "placeholder-auth",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "placeholder-project",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "placeholder-bucket",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "placeholder-app-id",
+  firestoreDatabaseId: ""
 };
 
 // Check if variables are missing

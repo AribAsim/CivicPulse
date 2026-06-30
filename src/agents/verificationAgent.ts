@@ -1,6 +1,5 @@
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { awardPoints, createNotification } from '../utils/pointsEngine';
+import { db, FieldValue } from '../config/firebaseAdmin';
+import { awardPoints, createNotification } from '../utils/pointsEngineAdmin';
 import { GoogleGenAI } from '@google/genai';
 import { runWithRetry } from '../utils/geminiRetry';
 
@@ -14,15 +13,15 @@ const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
  */
 export async function runVerificationAgent(issueId: string) {
   try {
-    const issueRef = doc(db, 'issues', issueId);
-    const issueSnap = await getDoc(issueRef);
+    const issueRef = db.collection('issues').doc(issueId);
+    const issueSnap = await issueRef.get();
 
-    if (!issueSnap.exists()) {
+    if (!issueSnap.exists) {
       console.error(`[VerificationAgent] Issue ${issueId} not found.`);
       return;
     }
 
-    const issue = issueSnap.data();
+    const issue = issueSnap.data() || {};
 
     if (issue.verified) {
       console.error(`[VerificationAgent] Issue ${issueId} is already verified.`);
@@ -59,11 +58,11 @@ export async function runVerificationAgent(issueId: string) {
     }
 
     // Update issue in Firestore
-    await updateDoc(issueRef, {
+    await issueRef.update({
       verified: true,
       status: 'verified',
       verificationReason: verificationReason,
-      updatedAt: serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     });
 
     // Award 10 points to each upvoter
@@ -86,3 +85,4 @@ export async function runVerificationAgent(issueId: string) {
     console.error(`[VerificationAgent] Failed to verify issue ${issueId}:`, error);
   }
 }
+

@@ -27,10 +27,16 @@ service cloud.firestore {
       allow read, list: if true;
       // Allow create if signed in and reportedBy matches current user UID
       allow create: if isSignedIn() && request.resource.data.reportedBy == request.auth.uid;
-      // Allow update if signed in and the reporter cannot be spoofed/stolen
+      
+      // Allow update if signed in, but non-owners can only upvote or perform warden resolution state updates
       allow update: if isSignedIn() && (
-        !resource.data.keys().hasAll(['reportedBy']) || 
-        request.resource.data.reportedBy == resource.data.reportedBy
+        // Case A: Reporter can update their own issue (must not change reportedBy)
+        (resource.data.reportedBy == request.auth.uid && request.resource.data.reportedBy == resource.data.reportedBy) ||
+        // Case B: Any signed-in user can upvote (affecting only 'upvotes' and 'updatedAt')
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes', 'updatedAt']) ||
+        // Case C: Warden actions - testing controls can update status, resolvedAt, resolvedImageUrl, verificationReason, and updatedAt
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'verificationReason', 'resolvedImageUrl', 'resolvedAt', 'updatedAt']) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
       );
       allow delete: if false;
     }
@@ -56,13 +62,16 @@ service cloud.firestore {
     // Collection: Activities (historical actions logged)
     match /activities/{activityId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      // Seeding and client logging can create logs, but updates/deletes are blocked
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     // Collection: Analytics (Dashboard indexes, read-only to public)
     match /analytics/{docId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      // server-only via Admin SDK
+      allow write: if false;
     }
 
   }
